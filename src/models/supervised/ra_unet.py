@@ -127,32 +127,44 @@ class AttentionGate(nn.Module):
         self.conv_x = nn.Conv2d(in_channels, out_channels, 2, stride=2)
 
         # G is gating signal
-        self.conv_g = nn.Conv2d(in_channels, out_channels*2, 2)
+        self.conv_g = nn.Conv2d(in_channels*2, out_channels, 2)
 
         self.relu = relu
 
-        self.psi = nn.Conv2d(in_channels, 1, 2)
+        self.psi = nn.Conv2d(out_channels, 1, 2)
 
         self.sigmoid = sigmoid
 
-        self.upsample = nn.Upsample(size=(in_channels, out_channels))
+        self.upsample = nn.Upsample(scale_factor=2)
 
-        self.final_conv = nn.Conv2d(in_channels, out_channels, 2)
+        self.final_conv = nn.Conv2d(in_channels, out_channels, 2, padding=0)
         # Might need another conv2D
         # Might add a batchnorm
 
 
     def forward(self, x, g):
+        # Potentially Fix Padding
         print("Att", x.shape, g.shape, self.in_c, self.out_c)
 
         res = self.conv_x(x)
         g = self.conv_g(g)
-
+        
+        diffX = g.size()[2] - res.size()[2]
+        diffY = g.size()[3] - res.size()[3]
+        res = pad(res, (diffX // 2, diffX - diffX//2,
+                        diffY // 2, diffY - diffY//2))
+        print("res", res.shape, g.shape, self.in_c, self.out_c)
         res = torch.add(g, res)
         res = self.relu(res)
         res = self.psi(res)
         res = self.sigmoid(res)
+        # Fix upsample
         res = self.upsample(res)
+        print("up", res.shape, "X", x.shape, self.in_c, self.out_c)
+        diffX = x.size()[2] - res.size()[2]
+        diffY = x.size()[3] - res.size()[3]
+        res = pad(res, (diffX // 2, diffX - diffX//2,
+                        diffY // 2, diffY - diffY//2))
         res = torch.mul(res, x)
         # res = self.final_conv(res)
         return res
@@ -270,6 +282,7 @@ class RA_UNet(nn.Module):
             # evaluate it with the decoder
             # Issue: Would have to call activation inside decoder however we would need access to the prev residual
             # Split the decoder?
+            # SPlit to decoderup and decoderconv
             prev_residual = self.activation_gates[len(self.activation_gates)-1-i](residuals[len(residuals)-2-i], x)
             x = self.decoders[i](x, prev_residual)
         
