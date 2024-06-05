@@ -1,4 +1,4 @@
-"""Legacy code from hw03 datamodule.py winter 2024"""
+# datamodule.py | hw2
 
 import sys
 from pathlib import Path
