@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torchvision.models import resnet50
-from torch.nn.functional import relu, pad, sigmoid, multiply
+from torch.nn.functional import relu, pad, sigmoid
 
 '''
 Residual Attention UNet builds off UNet.py 
@@ -118,10 +118,12 @@ class OutConv(nn.Module):
         x = self.conv(x)
         return x
     
-class Attention(nn.Module):
+class AttentionGate(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
 
+        self.in_c = in_channels
+        self.out_c = out_channels
         self.conv_x = nn.Conv2d(in_channels, out_channels, 2, stride=2)
 
         # G is gating signal
@@ -135,10 +137,13 @@ class Attention(nn.Module):
 
         self.upsample = nn.Upsample(size=(in_channels, out_channels))
 
-        self.multiply = multiply
+        self.final_conv = nn.Conv2d(in_channels, out_channels, 2)
+        # Might need another conv2D
+        # Might add a batchnorm
 
 
-    def foward(self, x, g):
+    def forward(self, x, g):
+        print("Att", x.shape, g.shape, self.in_c, self.out_c)
 
         res = self.conv_x(x)
         g = self.conv_g(g)
@@ -147,8 +152,9 @@ class Attention(nn.Module):
         res = self.relu(res)
         res = self.psi(res)
         res = self.sigmoid(res)
-
-        res = self.multiply(res, x)
+        res = self.upsample(res)
+        res = torch.mul(res, x)
+        # res = self.final_conv(res)
         return res
 
 
@@ -193,10 +199,12 @@ class RA_UNet(nn.Module):
         self.doubleconvhelper = DoubleConvHelper(in_channels, self.embedding_size)
         
         self.encoders = nn.ModuleList()
+        self.activation_gates = nn.ModuleList()
         # for each encoder (there's n_encoders encoders)
         for _ in range(self.n_encoders):
             # append a new encoder with embedding_size as input and 2*embedding_size as output
             self.encoders.append(Encoder(self.embedding_size, self.embedding_size*2))
+            self.activation_gates.append(AttentionGate(self.embedding_size, self.embedding_size*2))
             print("Encoder", self.embedding_size, self.embedding_size*2)
             # double the size of embedding_size
             self.embedding_size *= 2
@@ -260,7 +268,10 @@ class RA_UNet(nn.Module):
         for i in range(len(residuals)-1):
             # Implement Attention Gate
             # evaluate it with the decoder
-            x = self.decoders[i](x, residuals[len(residuals)-2-i])
+            # Issue: Would have to call activation inside decoder however we would need access to the prev residual
+            # Split the decoder?
+            prev_residual = self.activation_gates[len(self.activation_gates)-1-i](residuals[len(residuals)-2-i], x)
+            x = self.decoders[i](x, prev_residual)
         
         # evaluate the final pooling layer
         x = self.pool(x)
