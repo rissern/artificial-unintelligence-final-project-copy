@@ -144,7 +144,7 @@ class AttentionGate(nn.Module):
 
     def forward(self, x, g):
         # Potentially Fix Padding
-        print("Att", x.shape, g.shape, self.in_c, self.out_c)
+        # print("Att", x.shape, g.shape, self.in_c, self.out_c)
 
         res = self.conv_x(x)
         g = self.conv_g(g)
@@ -153,20 +153,23 @@ class AttentionGate(nn.Module):
         diffY = g.size()[3] - res.size()[3]
         res = pad(res, (diffX // 2, diffX - diffX//2,
                         diffY // 2, diffY - diffY//2))
-        print("res", res.shape, g.shape, self.in_c, self.out_c)
+        # print("res", res.shape, g.shape, self.in_c, self.out_c)
         res = torch.add(g, res)
         res = self.relu(res)
         res = self.psi(res)
         res = self.sigmoid(res)
-        # Fix upsample
+        
         res = self.upsample(res)
-        print("up", res.shape, "X", x.shape, self.in_c, self.out_c)
+        # print("up", res.shape, "X", x.shape, self.in_c, self.out_c)
         diffX = x.size()[2] - res.size()[2]
         diffY = x.size()[3] - res.size()[3]
         res = pad(res, (diffX // 2, diffX - diffX//2,
                         diffY // 2, diffY - diffY//2))
         res = torch.mul(res, x)
+        # Might need final conv
         # res = self.final_conv(res)
+
+        # Maybe batch norm
         return res
 
 
@@ -217,7 +220,6 @@ class RA_UNet(nn.Module):
             # append a new encoder with embedding_size as input and 2*embedding_size as output
             self.encoders.append(Encoder(self.embedding_size, self.embedding_size*2))
             self.activation_gates.append(AttentionGate(self.embedding_size, self.embedding_size*2))
-            print("Encoder", self.embedding_size, self.embedding_size*2)
             # double the size of embedding_size
             self.embedding_size *= 2
 
@@ -232,11 +234,9 @@ class RA_UNet(nn.Module):
                 # create a decoder of embedding_size input and out_channels output
                 self.decoders.append(Decoder(self.embedding_size, out_channels))
 
-                print("Decoder", self.embedding_size, out_channels)
             else:
                 # create a decoder of embeding_size input and embedding_size//2 output
                 self.decoders.append(Decoder(self.embedding_size, self.embedding_size//2))
-                print("Decoder", self.embedding_size, self.embedding_size//2)
             # halve the embedding size
             self.embedding_size = self.embedding_size // 2
         

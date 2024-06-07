@@ -7,6 +7,7 @@ import torchmetrics
 from src.models.supervised.segmentation_cnn import SegmentationCNN
 from src.models.supervised.unet import UNet
 from src.models.supervised.resnet_transfer import FCNResnetTransfer
+from src.models.supervised.ra_unet import RA_UNet
 
 
 class ESDSegmentation(pl.LightningModule):
@@ -41,6 +42,8 @@ class ESDSegmentation(pl.LightningModule):
             self.model = UNet(in_channels, out_channels, **model_params)
         elif model_type == "FCNResnetTransfer":
             self.model = FCNResnetTransfer(in_channels, out_channels, **model_params)
+        elif model_type == "RA_UNet":
+            self.model = RA_UNet(in_channels, out_channels, **model_params)
         else:
             raise Exception(f"model_type not found: {model_type}")
 
