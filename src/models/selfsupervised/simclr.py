@@ -10,7 +10,7 @@ from lightly.models.modules import SimCLRProjectionHead
 from lightly.transforms.simclr_transform import SimCLRTransform
 
 class SimCLR(pl.LightningModule):
-    def __init__(self, in_channels, out_dim=512, hidden_dim=128,  **kwargs):
+    def __init__(self, in_channels, out_dim=2048, hidden_dim=2048,  **kwargs):
         super().__init__()
 
         resnet = torchvision.models.resnet18()
@@ -27,8 +27,8 @@ class SimCLR(pl.LightningModule):
 
         self.projection_head = SimCLRProjectionHead(
             input_dim=512,
-            hidden_dim=2048,
-            output_dim=2048,
+            hidden_dim=hidden_dim,
+            output_dim=out_dim,
         )
 
         self.criterion = NTXentLoss()
