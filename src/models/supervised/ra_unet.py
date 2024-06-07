@@ -30,24 +30,39 @@ class DoubleConvHelper(nn.Module):
         self.conv2 = nn.Conv2d(mid_channels, out_channels, 2, padding=1)
         # create a batch_norm2d of size out_channels
         self.batch_norm_2 = nn.BatchNorm2d(out_channels)
+
+        self.conv3 = nn.Conv2d(in_channels, mid_channels, 2, padding=1)
+        self.batch_norm_3 = nn.BatchNorm2d(out_channels)
         
 
     def forward(self, x):
         """Forward pass through the layers of the helper block"""
         # conv1
-        x = self.conv1(x)
+        x1 = self.conv1(x)
         # batch_norm1
-        x = self.batch_norm_1(x)
+        x1 = self.batch_norm_1(x1)
         # relu
-        x = self.relu(x)
+        x1 = self.relu(x1)
         # conv2
-        x = self.conv2(x)
+        x1 = self.conv2(x1)
         # batch_norm2
-        x = self.batch_norm_2(x)
+        x1 = self.batch_norm_2(x1)
         # relu
-        x = self.relu(x)
+        x1 = self.relu(x1)        
+        
+        x2 = self.conv3(x)
+        x2 = self.batch_norm_3(x2)
+        diffX = x2.size()[2] - x1.size()[2]
+        diffY = x2.size()[3] - x1.size()[3]
+        x1 = pad(x1, (diffX // 2, diffX - diffX//2,
+                        diffY // 2, diffY - diffY//2))
+        
+        x1 = torch.add(x2, x1)
+        x1 = self.relu(x1)
 
-        return x
+
+
+        return x1
 
 
 class Encoder(nn.Module):
