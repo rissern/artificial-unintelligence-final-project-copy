@@ -40,6 +40,31 @@ from src.utilities import SatelliteType
 
 # given
 def collate_fn(batch):
+
+    initial = batch[0]
+    is_selfsup = type(initial[0]) is tuple
+
+    if is_selfsup:
+        Xs0 = []
+        Xs1 = []
+
+        ys0 = []
+        ys1 = []
+
+        for X, y in batch:
+            Xs0.append(X[0])
+            Xs1.append(X[1])
+            ys0.append(y[0])
+            ys1.append(y[1])
+
+        Xs0 = torch.stack(Xs0)
+        Xs1 = torch.stack(Xs1)
+        ys0 = torch.stack(ys0)
+        ys1 = torch.stack(ys1)
+
+        return (Xs0, Xs1), (ys0, ys1)
+
+
     Xs = []
     ys = []
     for X, y in batch:

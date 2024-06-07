@@ -61,6 +61,7 @@ def train(options: ESDConfig):
         num_workers=options.num_workers,
         transform_list=None,
         transform=transform,
+        train_size=1
     )
 
     # prepare the data

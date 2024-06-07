@@ -161,8 +161,8 @@ class ESDDataset(Dataset):
                 y = transform_result["y"]
             else:
                 # if there is a type error, set X and y to be the transform result
-                X = torch.from_numpy(np.array([transform_result[0]["X"], transform_result[1]["X"]]))
-                y = torch.from_numpy(np.array([transform_result[0]["y"]-1, transform_result[1]["y"]-1]))
+                X = (transform_result[0]["X"], transform_result[1]["X"])
+                y = (transform_result[0]["y"]-1, transform_result[1]["y"]-1)
                 self_supervised_transforms = True
 
         # return X and y-1, labels go from 1-4, so y-1 makes them zero indexed
