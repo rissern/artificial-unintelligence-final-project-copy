@@ -64,6 +64,7 @@ class ESDDataModule(pl.LightningDataModule):
         slice_size: Tuple specifying the size for subtiling.
         train_size: Fraction of data allocated for training.
         transform_list: List of torchvision transforms applied to the data.
+        transform: torchvision.transforms.Compose object containing a composition of transforms, default None.
 
     Methods:
         load_and_preprocess(tile_dir: Path) -> Tuple[List[xr.DataArray], xr.DataArray]:
@@ -101,6 +102,7 @@ class ESDDataModule(pl.LightningDataModule):
             # v2.RandomChoice([Rotate(0), Rotate(90), Rotate(180), Rotate(270)]), // provides better augmentations but runs slow
             ToTensor(),
         ],
+        transform=None,
     ):
         super(ESDDataModule, self).__init__()
         self.processed_dir = processed_dir
@@ -113,7 +115,10 @@ class ESDDataModule(pl.LightningDataModule):
         self.train_size = train_size
         self.satellite_type_list = [key for key in self.selected_bands.keys()]
 
-        self.transform = torchvision_transforms.transforms.Compose(transform_list)
+        if transform is None:
+            self.transform = torchvision_transforms.transforms.Compose(transform_list)
+        else:
+            self.transform = transform
 
         self.train_dir = self.processed_dir / "Train"
         self.val_dir = self.processed_dir / "Val"

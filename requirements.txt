@@ -14,3 +14,4 @@ pyprojroot
 umap-learn
 wandb
 rich
+lightly

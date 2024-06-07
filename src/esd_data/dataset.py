@@ -143,6 +143,7 @@ class ESDDataset(Dataset):
         # set y to be the ground truth data array .values squeezed on the 0 and 1 axis
         y = ground_truth.squeeze(0).squeeze(0)
 
+        self_supervised_transforms = False
 
         # if the transform is not none
         if self.transform is not None:
@@ -150,11 +151,19 @@ class ESDDataset(Dataset):
             # apply the transform to X and y and store the result
             transform_result = self.transform({"X": X, "y": y})
 
-            # set X to be the result for X
-            X = transform_result["X"]
+            if type(transform_result) == dict:
+                # set X to be the result for X
+                X = transform_result["X"]
 
-            # set y to be the result for y
-            y = transform_result["y"]
+                # set y to be the result for y
+                y = transform_result["y"]
+            else:
+                # if there is a type error, set X and y to be the transform result
+                X = torch.from_numpy(np.array([transform_result[0]["X"], transform_result[1]["X"]]))
+                y = torch.from_numpy(np.array([transform_result[0]["y"]-1, transform_result[1]["y"]-1]))
+                self_supervised_transforms = True
 
         # return X and y-1, labels go from 1-4, so y-1 makes them zero indexed
+        if self_supervised_transforms:
+            return X, y
         return X, y-1
