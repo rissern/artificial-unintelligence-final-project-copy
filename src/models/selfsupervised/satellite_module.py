@@ -34,15 +34,38 @@ class ESDSelfSupervised(pl.LightningModule):
         # if the model type is unet, initialize a unet as self.model
         # if the model type is fcn_resnet_transfer, initialize a fcn_resnet_transfer as self.model
         if model_type == "SimClr":
-            self.model = SimCLR(in_channels, **model_params)
+            self.model = SimCLR(in_channels, out_channels, **model_params)
         else:
             raise Exception(f"model_type not found: {model_type}")
+        
+        self.train_accuracy_metrics = torchmetrics.Accuracy(
+            task="multiclass",
+            num_classes=out_channels,
+            average="macro",
+            multidim_average="global",
+        )  # not sure the parameters are correct
+        self.eval_accuracy_metrics = torchmetrics.Accuracy(
+            task="multiclass",
+            num_classes=out_channels,
+            average="macro",
+            multidim_average="global",
+        )  # not sure the parameters are correct
+
+        # f1 score
+        self.train_f1_metrics = torchmetrics.F1Score(
+            task="multiclass",
+            num_classes=out_channels, 
+        )
+        self.eval_f1_metrics = torchmetrics.F1Score(
+            task="multiclass",
+            num_classes=out_channels, 
+        )
 
     def forward(self, X):
         """
         Forward pass of the model.
         """
-        return self.model.forward(X)
+        return self.model(X)
 
     def training_step(self, batch, batch_idx):
         
@@ -51,8 +74,18 @@ class ESDSelfSupervised(pl.LightningModule):
         # return loss
         self.log("train_loss", loss)
         return loss
+    
+    def validation_step(self, batch, batch_idx):
+
+        loss = self.model.training_step(batch, batch_idx)
+        
+        self.log("val_loss", loss)
+
+        return loss
 
 
     def configure_optimizers(self):
         
-        return self.model.configure_optimizers()
+        optim = torch.optim.SGD(self.parameters(), lr=0.06)
+        return optim
+

@@ -61,7 +61,6 @@ def train(options: ESDConfig):
         num_workers=options.num_workers,
         transform_list=None,
         transform=transform,
-        train_size=1
     )
 
     # prepare the data
@@ -75,6 +74,7 @@ def train(options: ESDConfig):
         "in_channels": options.in_channels,
         "out_channels": options.out_channels,
         "learning_rate": options.learning_rate,
+        "model_params": {},
     }
 
     # initialize the ESDSegmentation model
