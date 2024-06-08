@@ -9,6 +9,9 @@ from src.models.supervised.unet import UNet
 from src.models.supervised.resnet_transfer import FCNResnetTransfer
 from src.models.supervised.ra_unet import RA_UNet
 
+import segmentation_models_pytorch as smp
+
+
 
 class ESDSegmentation(pl.LightningModule):
     def __init__(
@@ -44,6 +47,13 @@ class ESDSegmentation(pl.LightningModule):
             self.model = FCNResnetTransfer(in_channels, out_channels, **model_params)
         elif model_type == "RA_UNet":
             self.model = RA_UNet(in_channels, out_channels, **model_params)
+        elif model_type == "UNet++":
+            self.model = smp.UnetPlusPlus(
+                encoder_name="resnet50",
+                encoder_weights="imagenet",
+                in_channels=self.in_channels,                 
+                classes=self.out_channels,                     
+            )
         else:
             raise Exception(f"model_type not found: {model_type}")
 
