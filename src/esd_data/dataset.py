@@ -91,6 +91,7 @@ class ESDDataset(Dataset):
         # merge the time and bands dimension (hint: use np.stack or np.reshape)
 
         # assert dtype is float32
+        
         assert array.dtype == np.float32, f"array.dtype: {array.dtype} != np.float32"
         
         time, bands, width, height = array.shape
@@ -132,7 +133,12 @@ class ESDDataset(Dataset):
         for array in data_array_list:
 
             # aggregate time and append the array to X
-            X.append(self.__aggregate_time(array))
+           
+            array = self.__aggregate_time(array)
+            
+            padding = ((0, 0), (8,8), (8,8))
+            array = np.pad(array, pad_width=padding, mode='constant', constant_values=0)
+            X.append(array)
 
 
         # concatenate X
@@ -142,6 +148,8 @@ class ESDDataset(Dataset):
 
         # set y to be the ground truth data array .values squeezed on the 0 and 1 axis
         y = ground_truth.squeeze(0).squeeze(0)
+        # print("img", X.shape)
+        # print("gt", y.shape)
 
 
         # if the transform is not none
