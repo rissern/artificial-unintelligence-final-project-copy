@@ -77,7 +77,15 @@ class ESDSelfSupervised(pl.LightningModule):
     
     def validation_step(self, batch, batch_idx):
 
-        loss = self.model.training_step(batch, batch_idx)
+        if self.model.mode == "finetune":
+            out = self.model.finetune_step(batch, batch_idx)
+            loss = out["loss"]
+            pred = out["pred"]
+            acc = self.eval_accuracy_metrics(pred, batch[1])
+            self.log("eval_accuracy", acc, on_epoch=True)
+
+        else:
+            loss = self.model.training_step(batch, batch_idx)
         
         self.log("val_loss", loss)
 
