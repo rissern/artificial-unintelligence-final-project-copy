@@ -90,7 +90,7 @@ def train(options: ESDConfig):
     # RichModelSummary: shows a summary of the model before training (requires rich)
     callbacks = [
         ModelCheckpoint(
-            dirpath=ROOT / "models" / options.model_type,
+            dirpath=ROOT / "models" / options.model_type / "pretrain",
             filename="{epoch}-{train_loss:.2f}",
             save_top_k=1,
             save_last=True,
@@ -119,7 +119,7 @@ def train(options: ESDConfig):
     trainer.fit(model=ESDSelfSupervised_model, train_dataloaders=dataModule)
 
 
-    # finetune the model
+    # finetune the model ------------------------
     finetune_dataModule = ESDDataModule(
         processed_dir=options.processed_dir,
         raw_dir=options.raw_dir,
@@ -132,18 +132,46 @@ def train(options: ESDConfig):
     finetune_dataModule.prepare_data()
     finetune_dataModule.setup("fit")
 
-    ESDSelfSupervised_model.model.set_mode("finetune")
+    finetune_callbacks = [
+        ModelCheckpoint(
+            dirpath=ROOT / "models" / options.model_type / "finetune",
+            filename="{epoch}-{train_loss:.2f}-{eval_accuracy:.2f}",
+            save_top_k=1,
+            save_last=True,
+            verbose=True,
+            monitor="train_loss",
+            mode="min",
+        ),
+        LearningRateMonitor(),
+        RichProgressBar(),
+        RichModelSummary(max_depth=3),
+    ]
+
+
+    finetune_model_param = {
+        "model_type": options.model_type,
+        "in_channels": options.in_channels,
+        "out_channels": options.out_channels,
+        "learning_rate": options.learning_rate,
+        "model_params": {
+            "mode": "finetune",
+        },
+    }
+
+    best_model_checkpoint = callbacks[0].best_model_path
+    print('loading model from checkpoint:', best_model_checkpoint)
+    Finetune_ESDSelfSupervised_model = ESDSelfSupervised.load_from_checkpoint(best_model_checkpoint, **finetune_model_param)
 
     finetune_trainer = pl.Trainer(
         accelerator=options.accelerator,
         devices=options.devices,
         logger=wandb_logger,
         max_epochs=options.max_epochs,
-        callbacks=callbacks,
+        callbacks=finetune_callbacks,
         precision="32-true",
     )
 
-    finetune_trainer.fit(model=ESDSelfSupervised_model, train_dataloaders=finetune_dataModule)
+    finetune_trainer.fit(model=Finetune_ESDSelfSupervised_model, train_dataloaders=finetune_dataModule)
 
 
 

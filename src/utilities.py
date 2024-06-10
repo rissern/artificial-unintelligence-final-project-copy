@@ -66,7 +66,7 @@ class ESDConfig:
     embedding_size: int = 64
     in_channels: int = 33  # num_dates * num_bands 99 total
     kernel_size: int = 3
-    learning_rate: float = 1e-3
+    learning_rate: float = 3e-2
     max_epochs: int = 100
     model_path: Path = ROOT / "models" / MODEL / "last.ckpt"
     model_type: str = MODEL

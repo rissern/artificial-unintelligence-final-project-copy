@@ -93,8 +93,59 @@ class ESDSelfSupervised(pl.LightningModule):
 
 
     def configure_optimizers(self):
+
+        if self.model.mode == "pretrain":
+            return self._configure_optimizer_pretrain()
+        
+        return self._configure_optimizer_finetune()
+    
+    def _configure_optimizer_pretrain(self):
+        """
+        Configure optimizer for pretraining.
+        """
         
         optim = torch.optim.SGD(self.parameters(), lr=self.learning_rate)
+
+        # use a lr scheduler
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optim,
+            mode="min",
+            factor=0.1,
+            patience=5,
+            min_lr=1e-6,
+            verbose=True,
+        )
         
-        return optim
+        return {
+            "optimizer": optim,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_loss",
+                'interval': 'epoch',
+                'frequency': 1,
+            }
+        }
+    
+    def _configure_optimizer_finetune(self):
+        optim = torch.optim.SGD(self.parameters(), lr=self.learning_rate)
+
+        # use a lr scheduler
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optim,
+            mode="min",
+            factor=0.1,
+            patience=5,
+            min_lr=1e-6,
+            verbose=True,
+        )
+        
+        return {
+            "optimizer": optim,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_loss",
+                'interval': 'epoch',
+                'frequency': 1,
+            }
+        }
 
