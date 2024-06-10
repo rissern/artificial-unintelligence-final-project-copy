@@ -13,7 +13,7 @@ class ESDSelfSupervised(pl.LightningModule):
         model_type,
         in_channels,
         out_channels,
-        learning_rate=1e-3,
+        learning_rate=0.06,
         model_params: dict = {},
     ):
         """
@@ -94,6 +94,7 @@ class ESDSelfSupervised(pl.LightningModule):
 
     def configure_optimizers(self):
         
-        optim = torch.optim.SGD(self.parameters(), lr=0.06)
+        optim = torch.optim.SGD(self.parameters(), lr=self.learning_rate)
+        
         return optim
 
