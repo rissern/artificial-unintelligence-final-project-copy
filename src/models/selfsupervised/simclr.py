@@ -152,6 +152,13 @@ class SimCLR(nn.Module):
         self.pool = nn.AvgPool2d(kernel_size=scale_factor)
 
     def set_mode(self, mode: str):
+        """
+        Set mode of model
+
+        Arguments:
+            mode: str
+                of of ["pretrain", "finetune"]
+        """
         assert mode in ["pretrain", "finetune"], "mode must be either 'pretrain' or 'finetune'"
         self.mode = mode
 
@@ -183,22 +190,28 @@ class SimCLR(nn.Module):
     def training_step(self, batch, batch_index):
         
         if self.mode == "pretrain":
-            return self.pretrain_step(batch, batch_index)
+            return self.pretrain_step(batch, batch_index)["loss"]
         elif self.mode == "finetune":
-            return self.finetune_step(batch, batch_index)
+            return self.finetune_step(batch, batch_index)["loss"]
             
     def pretrain_step(self, batch, batch_index):
         (x0, x1) = batch[0]
         z0 = self.forward(x0)
         z1 = self.forward(x1)
         loss = self.criterion(z0, z1)
-        return loss
+        
+        return {
+            "loss": loss,
+        }
     
     def finetune_step(self, batch, batch_index):
         imgs, masks = batch
         pred = self.forward(imgs)
         loss = nn.functional.cross_entropy(pred, masks)
-        return loss
+        return {
+            "loss": loss,
+            "pred": pred,
+        }
 
 
 

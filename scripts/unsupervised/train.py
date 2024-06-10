@@ -44,6 +44,7 @@ def train(options: ESDConfig):
             torchvision.transforms.RandomApply([RandomHFlip(p=1)], p=0.5),
             torchvision.transforms.RandomApply([RandomVFlip(p=1)], p=0.5),
             # v2.RandomChoice([Rotate(0), Rotate(90), Rotate(180), Rotate(270)]), // provides better augmentations but runs slow
+            torchvision.transforms.RandomApply([Rotate(90)], p=0.5),
             ToTensor(),
         ]
     )
@@ -116,6 +117,34 @@ def train(options: ESDConfig):
 
     # run trainer.fit
     trainer.fit(model=ESDSelfSupervised_model, train_dataloaders=dataModule)
+
+
+    # finetune the model
+    finetune_dataModule = ESDDataModule(
+        processed_dir=options.processed_dir,
+        raw_dir=options.raw_dir,
+        batch_size=options.batch_size,
+        seed=options.seed,
+        selected_bands=options.selected_bands,
+        slice_size=options.slice_size,
+        num_workers=options.num_workers,
+    )
+    finetune_dataModule.prepare_data()
+    finetune_dataModule.setup("fit")
+
+    ESDSelfSupervised_model.model.set_mode("finetune")
+
+    finetune_trainer = pl.Trainer(
+        accelerator=options.accelerator,
+        devices=options.devices,
+        logger=wandb_logger,
+        max_epochs=options.max_epochs,
+        callbacks=callbacks,
+        precision="32-true",
+    )
+
+    finetune_trainer.fit(model=ESDSelfSupervised_model, train_dataloaders=finetune_dataModule)
+
 
 
 if __name__ == "__main__":
