@@ -7,6 +7,7 @@ from torch import nn
 from lightly.loss import NTXentLoss
 from lightly.models.modules import SimCLRProjectionHead
 from typing import Sequence
+import segmentation_models_pytorch as smp
 
 
 # code from: pytorch deeplabv3.py https://github.com/pytorch/vision/blob/main/torchvision/models/segmentation/deeplabv3.py
@@ -116,39 +117,60 @@ class SimCLR(nn.Module):
         # mode can be either 'pretrain' or 'finetune'
         assert mode in ["pretrain", "finetune"], "mode must be either 'pretrain' or 'finetune'"
         self.mode = mode
+        self.seg_model = seg_model
 
-        resnet = torchvision.models.resnet50(weights=torchvision.models.ResNet50_Weights.DEFAULT)
-        resnet.conv1 = nn.Conv2d(
-            in_channels=in_channels,
-            out_channels=64,
-            kernel_size=(7, 7),
-            stride=(2, 2),
-            padding=(3, 3),
-            bias=False,
-        )
 
-        # print(*list(resnet.children()))
+        if seg_model == "resnet50" or seg_model == "deeplabv3":
+            resnet = torchvision.models.resnet50(weights=torchvision.models.ResNet50_Weights.DEFAULT)
+            resnet.conv1 = nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=64,
+                kernel_size=(7, 7),
+                stride=(2, 2),
+                padding=(3, 3),
+                bias=False,
+            )
 
-        self.backbone = nn.Sequential(*list(resnet.children())[:-2]) # Keep the feature map output
 
-        self.adaptive_pool = nn.AdaptiveAvgPool2d((1, 1))
+            # print(*list(resnet.children()))
 
-        backbone_output_dim = 2048
+            self.backbone = nn.Sequential(*list(resnet.children())[:-2]) # Keep the feature map output
 
-        self.projection_head = SimCLRProjectionHead(
-            input_dim=backbone_output_dim,
-            hidden_dim=hidden_dim,
-            output_dim=out_dim,
-        )
+            backbone_output_dim = 2048
+
+            self.projection_head = SimCLRProjectionHead(
+                input_dim=backbone_output_dim,
+                hidden_dim=hidden_dim,
+                output_dim=out_dim,
+            )
+
+
+            if seg_model == "resnet50":
+                self.segmentation_head = FCNHead(in_channels=backbone_output_dim, channels=out_channels)
+
+            elif seg_model == "deeplabv3":
+                self.segmentation_head = DeepLabHead(in_channels=backbone_output_dim, num_classes=out_channels)
+
+        elif seg_model == "unet++":
+            self.unetpp = smp.UnetPlusPlus(
+                encoder_name="resnet50",
+                encoder_weights="imagenet",
+                in_channels=in_channels,                 
+                classes=out_channels
+            )
+
+            self.backbone = self.unetpp.encoder
+            backbone_output_dim = 2048
+
+            self.projection_head = SimCLRProjectionHead(
+                input_dim=backbone_output_dim,
+                hidden_dim=hidden_dim,
+                output_dim=out_dim,
+            )
 
         self.criterion = NTXentLoss()
-
-        if seg_model == "resnet50":
-            self.segmentation_head = FCNHead(in_channels=backbone_output_dim, channels=out_channels)
-
-        elif seg_model == "deeplabv3":
-            self.segmentation_head = DeepLabHead(in_channels=backbone_output_dim, num_classes=out_channels)
         
+        self.adaptive_pool = nn.AdaptiveAvgPool2d((1, 1))
         self.pool = nn.AvgPool2d(kernel_size=scale_factor)
 
     def set_mode(self, mode: str):
@@ -168,7 +190,42 @@ class SimCLR(nn.Module):
 
     def forward(self, x):
         # based on the mode, the forward pass will return the output of the projection head or the segmentation head
-        input_shape = x.shape[-2:]
+        if self.seg_model == "resnet50":
+            return self.forward_resnet50(x)
+        elif self.seg_model == "deeplabv3":
+            return self.forward_resnet50(x)
+        elif self.seg_model == "unet++":
+            return self.forward_unetpp(x)
+        
+    def forward_unetpp(self, x):
+        """
+        Forward pass for the UNet++ model
+        """     
+
+        input_shape = x.shape[-2:]          
+
+        desired_size = (x.shape[-2]//32*32, x.shape[-1]//32*32)
+        x = nn.functional.interpolate(x, size=desired_size, mode="bilinear", align_corners=False)
+
+        if self.mode == "pretrain":
+            features = self.backbone(x)[-1]
+            x = self.adaptive_pool(features)
+            x = x.flatten(start_dim=1)
+            x = self.projection_head(x)
+            return x
+        
+        elif self.mode == "finetune":
+            x = self.unetpp(x)
+            # down/up sample the output to the original input
+            x = nn.functional.interpolate(x, size=input_shape, mode="bilinear", align_corners=False)
+            x = self.pool(x)
+            return x
+        
+    def forward_resnet50(self, x):
+        """
+        Forward pass for the ResNet50 model
+        """
+        input_shape = x.shape[-2:]            
 
         features = self.backbone(x)
 
@@ -179,6 +236,7 @@ class SimCLR(nn.Module):
             return x
         
         elif self.mode == "finetune":
+
             x = self.segmentation_head(features)
 
             # upsample the output to the original input
@@ -186,6 +244,7 @@ class SimCLR(nn.Module):
 
             x = self.pool(x)
             return x
+
 
     def training_step(self, batch, batch_index):
         
@@ -221,7 +280,7 @@ if __name__ == '__main__':
     # sanity check model
     model = SimCLR(in_channels=33, out_channels=4)
 
-    x = torch.rand(2, 33, 500, 500)
+    x = torch.rand(21, 33, 100, 100)
 
     z = model(x)
 
