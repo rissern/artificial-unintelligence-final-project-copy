@@ -32,8 +32,8 @@ num_ftrs = 512
 out_dim = proj_hidden_dim = 512
 pred_hidden_dim = 128
 
-torch.manual_seed(0)
-np.random.seed(0)
+torch.manual_seed(seed)
+np.random.seed(seed)
 
 path_to_data = "/Users/yeseongmoon/data/processed/Sentinal-2/"
 
@@ -117,7 +117,9 @@ class SimSiam(nn.Module):
 device = (
     torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
 )
-resnet = torchvision.models.resnet18()
+resnet = torchvision.models.resnet18(
+    weights=torchvision.models.ResNet18_Weights.IMAGENET1K_V1
+)
 backbone = nn.Sequential(*list(resnet.children())[:-1])
 model = SimSiam(backbone, num_ftrs, proj_hidden_dim, pred_hidden_dim, out_dim).to(
     device
