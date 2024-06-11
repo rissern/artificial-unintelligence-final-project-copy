@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 from torchvision.models import resnet50
-from torch.nn.functional import relu, pad
+from torch.nn.functional import relu, pad, interpolate
 import segmentation_models_pytorch as smp
+from torchvision.transforms import Resize
 
 
 class UNetPP(smp.UnetPlusPlus):
@@ -17,7 +18,16 @@ class UNetPP(smp.UnetPlusPlus):
         self.pool = nn.MaxPool2d(kernel_size = (scale_factor, scale_factor))
     
     def forward(self, x):
+        # Padding here would be better
+        final_size = x.size()[2]
+        remainder = x.size()[2] % 32
+
+        if remainder != 0:
+            final_size += (32 - remainder)
+        # interpolation = Bilinear
+        x = interpolate(x, size=(final_size, final_size), mode="bilinear")
         x = super().forward(x)
+        # Crop out the padding
         x = self.pool(x)
         return x
 

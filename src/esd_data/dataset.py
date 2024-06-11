@@ -133,11 +133,7 @@ class ESDDataset(Dataset):
         for array in data_array_list:
 
             # aggregate time and append the array to X
-           
             array = self.__aggregate_time(array)
-            
-            padding = ((0, 0), (8,8), (8,8))
-            array = np.pad(array, pad_width=padding, mode='symmetric')
             X.append(array)
 
 

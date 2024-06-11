@@ -118,7 +118,7 @@ class OutConv(nn.Module):
     
 class UNet(nn.Module):
     def __init__(self, in_channels: int, out_channels: int, n_encoders: int = 2,
-                 embedding_size: int = 64, scale_factor: int = 50, **kwargs):
+                 embedding_size: int = 64, scale_factor: int = 52, **kwargs):
         """
         Implements a unet, a network where the input is downscaled
         down to a lower resolution with a higher amount of channels,
