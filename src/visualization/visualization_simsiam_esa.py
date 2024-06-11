@@ -1,8 +1,7 @@
 # Import
 import math
 import os
-import fnmatch
-import shutil
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -21,6 +20,7 @@ from matplotlib import rcParams as rcp
 from PIL import Image
 
 from sklearn import random_projection
+from src.visualization.plot_utils_hw02 import plot_transforms, plot_2D_scatter_plot
 
 # Configuration
 num_workers = 0
