@@ -111,7 +111,7 @@ class SimCLR(nn.Module):
         mode:
             The mode of the model. Either 'pretrain' or 'finetune'.
     """
-    def __init__(self, in_channels, out_channels, scale_factor=50, seg_model="resnet50", out_dim=2048, hidden_dim=2048, mode="pretrain",  **kwargs):
+    def __init__(self, in_channels, out_channels, scale_factor=50, seg_model="unet++", out_dim=2048, hidden_dim=2048, mode="pretrain",  **kwargs):
         super(SimCLR, self).__init__()
 
         # mode can be either 'pretrain' or 'finetune'
@@ -152,15 +152,20 @@ class SimCLR(nn.Module):
                 self.segmentation_head = DeepLabHead(in_channels=backbone_output_dim, num_classes=out_channels)
 
         elif seg_model == "unet++":
+
+            self.encoder_depth = 5
+
             self.unetpp = smp.UnetPlusPlus(
-                encoder_name="resnet50",
+                encoder_name="resnet34",
                 encoder_weights="imagenet",
                 in_channels=in_channels,                 
-                classes=out_channels
+                classes=out_channels,
+                encoder_depth=self.encoder_depth,
+                decoder_channels=[256, 128, 64, 32, 16][:self.encoder_depth],
             )
 
             self.backbone = self.unetpp.encoder
-            backbone_output_dim = 2048
+            backbone_output_dim = 512
 
             self.projection_head = SimCLRProjectionHead(
                 input_dim=backbone_output_dim,
@@ -202,9 +207,11 @@ class SimCLR(nn.Module):
         Forward pass for the UNet++ model
         """     
 
+        factor = 2**self.encoder_depth
+
         input_shape = x.shape[-2:]          
 
-        desired_size = (x.shape[-2]//32*32, x.shape[-1]//32*32)
+        desired_size = (x.shape[-2]//factor*factor, x.shape[-1]//factor*factor)
         x = nn.functional.interpolate(x, size=desired_size, mode="bilinear", align_corners=False)
 
         if self.mode == "pretrain":

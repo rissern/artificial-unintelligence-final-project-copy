@@ -78,10 +78,14 @@ class ESDSelfSupervised(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
 
         if self.model.mode == "finetune":
+            img, mask = batch
             out = self.model.finetune_step(batch, batch_idx)
             loss = out["loss"]
             pred = out["pred"]
-            acc = self.eval_accuracy_metrics(pred, batch[1])
+            
+            eval = torch.argmax(pred, dim=1)
+
+            acc = self.eval_accuracy_metrics(eval, mask)
             self.log("eval_accuracy", acc, on_epoch=True)
 
         else:
@@ -104,15 +108,15 @@ class ESDSelfSupervised(pl.LightningModule):
         Configure optimizer for pretraining.
         """
         
-        optim = torch.optim.SGD(self.parameters(), lr=self.learning_rate)
+        optim = torch.optim.SGD(self.parameters(), lr=self.learning_rate, momentum=0.9)
 
         # use a lr scheduler
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optim,
             mode="min",
-            factor=0.1,
+            factor=0.5,
             patience=5,
-            min_lr=1e-6,
+            min_lr=1e-5,
             verbose=True,
         )
         
@@ -127,15 +131,16 @@ class ESDSelfSupervised(pl.LightningModule):
         }
     
     def _configure_optimizer_finetune(self):
-        optim = torch.optim.SGD(self.parameters(), lr=self.learning_rate)
+
+        optim = torch.optim.SGD(self.parameters(), lr=self.learning_rate, momentum=0.9)
 
         # use a lr scheduler
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optim,
             mode="min",
-            factor=0.1,
+            factor=0.5,
             patience=5,
-            min_lr=1e-6,
+            min_lr=1e-5,
             verbose=True,
         )
         

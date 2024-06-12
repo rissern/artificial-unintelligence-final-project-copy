@@ -91,11 +91,11 @@ def train(options: ESDConfig):
     callbacks = [
         ModelCheckpoint(
             dirpath=ROOT / "models" / options.model_type / "pretrain",
-            filename="{epoch}-{train_loss:.2f}",
+            filename="{epoch}-{val_loss:.2f}",
             save_top_k=1,
             save_last=True,
             verbose=True,
-            monitor="train_loss",
+            monitor="val_loss",
             mode="min",
             # every_n_train_steps=1000,
         ),
@@ -135,12 +135,12 @@ def train(options: ESDConfig):
     finetune_callbacks = [
         ModelCheckpoint(
             dirpath=ROOT / "models" / options.model_type / "finetune",
-            filename="{epoch}-{train_loss:.2f}-{eval_accuracy:.2f}",
+            filename="{epoch}-{val_loss:.2f}-{eval_accuracy:.2f}",
             save_top_k=1,
             save_last=True,
             verbose=True,
-            monitor="train_loss",
-            mode="min",
+            monitor="eval_accuracy",
+            mode="max",
         ),
         LearningRateMonitor(),
         RichProgressBar(),
