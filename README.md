@@ -19,7 +19,7 @@ Noah Risser
 
 ## Overview
 
-This project's goal is to use machine learning in order to analyze areas with settlements and/or electricity using Sentinel 2 and VIIRS satellite images. We employ a Self-Supervised Deep Learning model to semantically segment satellite images. We used SimCLR, which is a self-supervised model used to generate our initial weights for our Deep Learning model, U-Net++. This repo contains scripts to run our code, our various models including various supervised models, test cases, and our best model weights trained on these images.
+This project's goal is to use machine learning in order to analyze areas with settlements and/or electricity using Sentinel 2 and VIIRS satellite images. We employ a Self-Supervised Deep Learning model to semantically segment satellite images. We used SimCLR, which is a self-supervised model used to generate our initial weights for our Deep Learning model, U-Net++. This repo contains scripts to run our code, our various models including various supervised models, test cases, and our [best model weights](https://drive.google.com/drive/folders/1jz0clhroyV7D_KhmDnQLVo-Iin5t1F_n?usp=sharing) trained on these images.
 
 Project documents
 [Presentation](https://docs.google.com/presentation/d/1oqYLN1-L_TKw-rn5uoV_nzOL2YuNyasb_uZdeHgEXL4/edit?usp=drive_link)
