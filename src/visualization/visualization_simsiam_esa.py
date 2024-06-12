@@ -2,7 +2,9 @@
 import math
 import os
 from pathlib import Path
+import sys
 
+sys.path.append(".")
 import numpy as np
 import torch
 import torch.nn as nn
@@ -17,10 +19,13 @@ from lightly.transforms import SimCLRTransform, utils
 import matplotlib.offsetbox as osb
 import matplotlib.pyplot as plt
 from matplotlib import rcParams as rcp
+from matplotlib.offsetbox import (AnnotationBbox, DrawingArea, OffsetImage,
+                                  TextArea)
 from PIL import Image
 
 from sklearn import random_projection
-from src.visualization.plot_utils_hw02 import plot_transforms, plot_2D_scatter_plot
+from src.models.selfsupervised.satellite_module import ESDSelfSupervised
+from scripts.unsupervised.train import train
 
 # Configuration
 num_workers = 0
@@ -117,13 +122,8 @@ class SimSiam(nn.Module):
 device = (
     torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
 )
-resnet = torchvision.models.resnet18(
-    weights=torchvision.models.ResNet18_Weights.IMAGENET1K_V1
-)
-backbone = nn.Sequential(*list(resnet.children())[:-1])
-model = SimSiam(backbone, num_ftrs, proj_hidden_dim, pred_hidden_dim, out_dim).to(
-    device
-)
+model = ESDSelfSupervised("SimClr", 3, 128, 0.06, {})
+model.train()
 
 # SimSiam uses a symmetric negative cosine similarity loss and does therefore
 # not require any negative samples. We build a criterion and an optimizer.
@@ -136,62 +136,10 @@ lr = 0.05 * batch_size / 256
 # use SGD with momentum and weight decay
 optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=5e-4)
 
-
 # Train SimSiam
 # --------------------
 
 model.to(device)
-
-avg_loss = 0.0
-avg_output_std = 0.0
-for e in range(epochs):
-    for (x0, x1), _, _ in dataloader_train_simsiam:
-        # move images to the gpu
-        x0 = x0.to(device)
-        x1 = x1.to(device)
-
-        # run the model on both transforms of the images
-        # we get projections (z0 and z1) and
-        # predictions (p0 and p1) as output
-        z0, p0 = model(x0)
-        z1, p1 = model(x1)
-
-        # apply the symmetric negative cosine similarity
-        # and run backpropagation
-        loss = 0.5 * (criterion(z0, p1) + criterion(z1, p0))
-
-        if torch.isnan(loss) or torch.isinf(loss):
-            print(f"Found NaN/Inf in loss at epoch {e}")
-            continue
-
-        loss.backward()
-
-        optimizer.step()
-        optimizer.zero_grad()
-
-        # calculate the per-dimension standard deviation of the outputs
-        # we can use this later to check whether the embeddings are collapsing
-        output = p0.detach()
-        output = torch.nn.functional.normalize(output, dim=1)
-
-        output_std = torch.std(output, 0)
-        output_std = output_std.mean()
-
-        # use moving averages to track the loss and standard deviation
-        w = 0.9
-        avg_loss = w * avg_loss + (1 - w) * loss.item()
-        avg_output_std = w * avg_output_std + (1 - w) * output_std.item()
-
-    # the level of collapse is large if the standard deviation of the l2
-    # normalized output is much smaller than 1 / sqrt(dim)
-    collapse_level = max(0.0, 1 - math.sqrt(out_dim) * avg_output_std)
-    # print intermediate results
-    print(
-        f"[Epoch {e:3d}] "
-        f"Loss = {avg_loss:.2f} | "
-        f"Collapse Level: {collapse_level:.2f} / 1.00"
-    )
-
 
 # To embed the images in the dataset we simply iterate over the test dataloader
 # and feed the images to the model backbone. Make sure to disable gradients for
@@ -207,7 +155,7 @@ with torch.no_grad():
         # move the images to the gpu
         x = x.to(device)
         # embed the images with the pre-trained backbone
-        y = model.backbone(x).flatten(start_dim=1)
+        y = model.model.backbone(x).flatten(start_dim=1)
         # store the embeddings and filenames in lists
         embeddings.append(y)
         filenames = filenames + list(fnames)
@@ -238,14 +186,12 @@ M = np.max(embeddings_2d, axis=0)
 m = np.min(embeddings_2d, axis=0)
 embeddings_2d = (embeddings_2d - m) / (M - m)
 
-
 def get_image_as_np_array(filename: str):
     """Loads the image with filename and returns it as a numpy array."""
     img = Image.open(filename)
     if img.mode != "RGB":
         img = img.convert("RGB")
     return np.asarray(img)
-
 
 def get_scatter_plot_with_thumbnails():
     """Creates a scatter plot with image overlays."""
@@ -268,25 +214,33 @@ def get_scatter_plot_with_thumbnails():
 
     # plot image overlays
     for idx in shown_images_idx:
-        thumbnail_size = int(rcp["figure.figsize"][0] * 2.0)
+        # thumbnail_size = int(rcp["figure.figsize"][0] * 2.0)
+        # path = os.path.join(path_to_data, filenames[idx])
+        # img = get_image_as_np_array(path)
+        # # img = Image.open(path)
+        # img = functional.resize(Image.fromarray(img), thumbnail_size)
+        # img = np.array(img)
+        # img_box = osb.AnnotationBbox(
+        #     osb.OffsetImage(img, cmap=plt.cm.gray_r),
+        #     embeddings_2d[idx],
+        #     pad=0.2,
+        # )
+        # ax.add_artist(img_box)
+    
+        thumbnail_size = int(plt.rcParams["figure.figsize"][0] * 2.0)
         path = os.path.join(path_to_data, filenames[idx])
         img = get_image_as_np_array(path)
-        # img = Image.open(path)
-        img = functional.resize(Image.fromarray(img), thumbnail_size)
-        img = np.array(img)
-        img_box = osb.AnnotationBbox(
-            osb.OffsetImage(img, cmap=plt.cm.gray_r),
-            embeddings_2d[idx],
-            pad=0.2,
-        )
+        img = Image.fromarray(img).resize((thumbnail_size, thumbnail_size))
+        img_box = AnnotationBbox(OffsetImage(img), embeddings_2d[idx], pad=0.2)
         ax.add_artist(img_box)
 
-    # set aspect ratio
-    ratio = 1.0 / ax.get_data_ratio()
-    ax.set_aspect(ratio, adjustable="box")
-
+    ax.set_aspect('equal')
     plt.show()
-    plt.close(fig)
+
+    # set aspect ratio
+    # ratio = 1.0 / ax.get_data_ratio()
+    # ax.set_aspect(ratio, adjustable="box")
+
 
 
 # get a scatter plot with thumbnail overlays
@@ -312,8 +266,8 @@ def get_image_as_np_array_with_frame(filename: str, w: int = 5):
     img = get_image_as_np_array(filename)
     ny, nx, _ = img.shape
     # create an empty image with padding for the frame
-    framed_img = np.zeros((w + ny + w, w + nx + w, 3))
-    framed_img = framed_img.astype(np.uint8)
+    framed_img = np.zeros((w + ny + w, w + nx + w, 3), dtype=np.uint8)
+    #framed_img = framed_img.astype(np.uint8)
     # put the original image in the middle of the new one
     framed_img[w:-w, w:-w] = img
     return framed_img
@@ -328,8 +282,10 @@ def plot_nearest_neighbors_3x3(example_image: str, i: int):
     #
     example_idx = filenames.index(example_image)
     # get distances to the cluster center
-    distances = embeddings - embeddings[example_idx]
-    distances = np.power(distances, 2).sum(-1).squeeze()
+    # distances = embeddings - embeddings[example_idx]
+    # distances = np.power(distances, 2).sum(-1).squeeze()
+    #
+    distances = np.linalg.norm(embeddings - embeddings[example_idx], axis=1)
     # sort indices by distance to the center
     nearest_neighbors = np.argsort(distances)[:n_subplots]
     # show images
@@ -345,8 +301,6 @@ def plot_nearest_neighbors_3x3(example_image: str, i: int):
         # let's disable the axis
         plt.axis("off")
     plt.show()
-    plt.close(fig)
-
 
 # show example images for each cluster
 for i, image in enumerate(images):
