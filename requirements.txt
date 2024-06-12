@@ -14,3 +14,5 @@ pyprojroot
 umap-learn
 wandb
 rich
+lightly
+segmentation_models_pytorch

@@ -40,6 +40,31 @@ from src.utilities import SatelliteType
 
 # given
 def collate_fn(batch):
+
+    initial = batch[0]
+    is_selfsup = type(initial[0]) is tuple
+
+    if is_selfsup:
+        Xs0 = []
+        Xs1 = []
+
+        ys0 = []
+        ys1 = []
+
+        for X, y in batch:
+            Xs0.append(X[0])
+            Xs1.append(X[1])
+            ys0.append(y[0])
+            ys1.append(y[1])
+
+        Xs0 = torch.stack(Xs0)
+        Xs1 = torch.stack(Xs1)
+        ys0 = torch.stack(ys0)
+        ys1 = torch.stack(ys1)
+
+        return (Xs0, Xs1), (ys0, ys1)
+
+
     Xs = []
     ys = []
     for X, y in batch:
@@ -64,6 +89,7 @@ class ESDDataModule(pl.LightningDataModule):
         slice_size: Tuple specifying the size for subtiling.
         train_size: Fraction of data allocated for training.
         transform_list: List of torchvision transforms applied to the data.
+        transform: torchvision.transforms.Compose object containing a composition of transforms, default None.
 
     Methods:
         load_and_preprocess(tile_dir: Path) -> Tuple[List[xr.DataArray], xr.DataArray]:
@@ -99,6 +125,7 @@ class ESDDataModule(pl.LightningDataModule):
             v2.RandomChoice([Rotate(0), Rotate(90), Rotate(180), Rotate(270)]), # provides better augmentations but runs slow
             ToTensor(),
         ],
+        transform=None,
     ):
         super(ESDDataModule, self).__init__()
         self.processed_dir = processed_dir
@@ -111,7 +138,10 @@ class ESDDataModule(pl.LightningDataModule):
         self.train_size = train_size
         self.satellite_type_list = [key for key in self.selected_bands.keys()]
 
-        self.transform = torchvision_transforms.transforms.Compose(transform_list)
+        if transform is None:
+            self.transform = torchvision_transforms.transforms.Compose(transform_list)
+        else:
+            self.transform = transform
 
         self.train_dir = self.processed_dir / "Train"
         self.val_dir = self.processed_dir / "Val"
