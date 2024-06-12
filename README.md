@@ -19,7 +19,23 @@ Noah Risser
 
 ## Overview
 
-This project's goal is to use machine learning in order to analyze areas with settlements and/or electricity using satellite images. We use a Dynamic Mutual Training (DMT) approach to analyze labeled and unlabeled images. For our convolution model, we are using UNet. 
+This project's goal is to use machine learning in order to analyze areas with settlements and/or electricity using Sentinel 2 and VIIRS satellite images. We employ a Self-Supervised Deep Learning model to semantically segment satellite images. We used SimCLR, which is a self-supervised model used to generate our initial weights for our Deep Learning model, U-Net++. This repo contains scripts to run our code, our various models including various supervised models, test cases, and our best model weights trained on these images.
 
-## UNEt
+## ML Pipeline
 
+## SimCLR
+
+## U-Net++
+
+## Sample Results
+
+## Run Commands
+
+## Citing Artificial Unintelligence CS 175 Final Project 
+```
+@msic{Cordero2024Artificial,
+  title={Artificial Unintelligence CS 175 Final Project},
+  author={Joshua Cordero, Brian Le, AJ AJ Moon, Noah Risser},
+  year={2024}
+}
+```
