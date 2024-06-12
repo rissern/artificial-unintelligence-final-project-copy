@@ -18,7 +18,7 @@ class SatelliteType(Enum):
 
 ROOT = Path.cwd()
 PROJ_NAME = "CS175-spring-2024-final-project"
-MODEL = "SimClr"  # default, valid values are ["UNet", "SegmentationCNN", "FCNResnetTransfer", "SimClr"] # fmt: skip
+MODEL = "RA_UNet"  # default, valid values are ["UNet", "SegmentationCNN", "FCNResnetTransfer", "SimClr"] # fmt: skip
 
 
 @dataclass

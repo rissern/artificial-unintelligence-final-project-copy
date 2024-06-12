@@ -1,8 +1,11 @@
 import torch
 import torch.nn as nn
 from torchvision.models import resnet50
-from torch.nn.functional import relu, pad
+from torch.nn.functional import relu, pad, sigmoid
 
+'''
+Residual Attention UNet builds off UNet.py 
+'''
 class DoubleConvHelper(nn.Module):
     def __init__(self, in_channels, out_channels, mid_channels=None):
         """
@@ -27,25 +30,39 @@ class DoubleConvHelper(nn.Module):
         self.conv2 = nn.Conv2d(mid_channels, out_channels, 2, padding=1)
         # create a batch_norm2d of size out_channels
         self.batch_norm_2 = nn.BatchNorm2d(out_channels)
-        
 
+        self.conv3 = nn.Conv2d(in_channels, mid_channels, 2, padding=1)
+        self.batch_norm_3 = nn.BatchNorm2d(out_channels)
+        
 
     def forward(self, x):
         """Forward pass through the layers of the helper block"""
         # conv1
-        x = self.conv1(x)
+        x1 = self.conv1(x)
         # batch_norm1
-        x = self.batch_norm_1(x)
+        x1 = self.batch_norm_1(x1)
         # relu
-        x = self.relu(x)
+        x1 = self.relu(x1)
         # conv2
-        x = self.conv2(x)
+        x1 = self.conv2(x1)
         # batch_norm2
-        x = self.batch_norm_2(x)
+        x1 = self.batch_norm_2(x1)
         # relu
-        x = self.relu(x)
+        x1 = self.relu(x1)        
+        
+        x2 = self.conv3(x)
+        x2 = self.batch_norm_3(x2)
+        diffX = x2.size()[2] - x1.size()[2]
+        diffY = x2.size()[3] - x1.size()[3]
+        x1 = pad(x1, (diffX // 2, diffX - diffX//2,
+                        diffY // 2, diffY - diffY//2))
+        
+        x1 = torch.add(x2, x1)
+        x1 = self.relu(x1)
 
-        return x
+
+
+        return x1
 
 
 class Encoder(nn.Module):
@@ -116,9 +133,64 @@ class OutConv(nn.Module):
         x = self.conv(x)
         return x
     
-class UNet(nn.Module):
+class AttentionGate(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+
+        self.in_c = in_channels
+        self.out_c = out_channels
+        self.conv_x = nn.Conv2d(in_channels, out_channels, 2, stride=2)
+
+        # G is gating signal
+        self.conv_g = nn.Conv2d(in_channels*2, out_channels, 2)
+
+        self.relu = relu
+
+        self.psi = nn.Conv2d(out_channels, 1, 2)
+
+        self.sigmoid = sigmoid
+
+        self.upsample = nn.Upsample(scale_factor=2)
+
+        self.final_conv = nn.Conv2d(in_channels, out_channels, 2, padding=0)
+        # Might need another conv2D
+        # Might add a batchnorm
+
+
+    def forward(self, x, g):
+        # Potentially Fix Padding
+        # print("Att", x.shape, g.shape, self.in_c, self.out_c)
+
+        res = self.conv_x(x)
+        g = self.conv_g(g)
+        
+        diffX = g.size()[2] - res.size()[2]
+        diffY = g.size()[3] - res.size()[3]
+        res = pad(res, (diffX // 2, diffX - diffX//2,
+                        diffY // 2, diffY - diffY//2))
+        # print("res", res.shape, g.shape, self.in_c, self.out_c)
+        res = torch.add(g, res)
+        res = self.relu(res)
+        res = self.psi(res)
+        res = self.sigmoid(res)
+        
+        res = self.upsample(res)
+        # print("up", res.shape, "X", x.shape, self.in_c, self.out_c)
+        diffX = x.size()[2] - res.size()[2]
+        diffY = x.size()[3] - res.size()[3]
+        res = pad(res, (diffX // 2, diffX - diffX//2,
+                        diffY // 2, diffY - diffY//2))
+        res = torch.mul(res, x)
+        # Might need final conv
+        # res = self.final_conv(res)
+
+        # Maybe batch norm
+        return res
+
+
+class RA_UNet(nn.Module):
     def __init__(self, in_channels: int, out_channels: int, n_encoders: int = 2,
-                 embedding_size: int = 64, scale_factor: int = 52, **kwargs):
+                 embedding_size: int = 64, scale_factor: int = 50, **kwargs):
         """
         Implements a unet, a network where the input is downscaled
         down to a lower resolution with a higher amount of channels,
@@ -144,7 +216,7 @@ class UNet(nn.Module):
         as the input for this architecture must be the same size as the output,
         but our input images are 800x800 and our output images are 16x16.
         """
-        super(UNet, self).__init__()
+        super(RA_UNet, self).__init__()
 
         # save in_channels, out_channels, n_encoders, embedding_size to self
         self.in_channels = in_channels
@@ -157,13 +229,15 @@ class UNet(nn.Module):
         self.doubleconvhelper = DoubleConvHelper(in_channels, self.embedding_size)
         
         self.encoders = nn.ModuleList()
+        self.activation_gates = nn.ModuleList()
         # for each encoder (there's n_encoders encoders)
         for _ in range(self.n_encoders):
             # append a new encoder with embedding_size as input and 2*embedding_size as output
             self.encoders.append(Encoder(self.embedding_size, self.embedding_size*2))
+            self.activation_gates.append(AttentionGate(self.embedding_size, self.embedding_size*2))
             # double the size of embedding_size
             self.embedding_size *= 2
-        
+
         # store it in self.encoders as an nn.ModuleList
         
         self.decoders = nn.ModuleList()
@@ -174,6 +248,7 @@ class UNet(nn.Module):
             if i == self.n_encoders-1:
                 # create a decoder of embedding_size input and out_channels output
                 self.decoders.append(Decoder(self.embedding_size, out_channels))
+
             else:
                 # create a decoder of embeding_size input and embedding_size//2 output
                 self.decoders.append(Decoder(self.embedding_size, self.embedding_size//2))
@@ -181,6 +256,7 @@ class UNet(nn.Module):
             self.embedding_size = self.embedding_size // 2
         
         # save the decoder list as an nn.ModuleList to self.decoders
+        
         
 
         # create a MaxPool2d of kernel size scale_factor as the final pooling layer
@@ -213,12 +289,17 @@ class UNet(nn.Module):
             residuals.append(encoder(residuals[-1]))
 
         # set x to be the last value from the residuals
-        x = residuals[-1]
+        x = residuals[-1] # Hmmmm missing a call to decoder.up
         
         # for each residual except the last one
         for i in range(len(residuals)-1):
+            # Implement Attention Gate
             # evaluate it with the decoder
-            x = self.decoders[i](x, residuals[len(residuals)-2-i])
+            # Issue: Would have to call activation inside decoder however we would need access to the prev residual
+            # Split the decoder?
+            # SPlit to decoderup and decoderconv
+            prev_residual = self.activation_gates[len(self.activation_gates)-1-i](residuals[len(residuals)-2-i], x)
+            x = self.decoders[i](x, prev_residual)
         
         # evaluate the final pooling layer
         x = self.pool(x)

@@ -120,11 +120,9 @@ class ESDDataModule(pl.LightningDataModule):
         slice_size: Tuple[int, int] = (4, 4),
         train_size: float = 0.8,
         transform_list: list = [
-            torchvision_transforms.RandomApply([AddNoise()], p=0.5),
-            torchvision_transforms.RandomApply([Blur()], p=0.5),
             torchvision_transforms.RandomApply([RandomHFlip(p=1)], p=0.5),
             torchvision_transforms.RandomApply([RandomVFlip(p=1)], p=0.5),
-            # v2.RandomChoice([Rotate(0), Rotate(90), Rotate(180), Rotate(270)]), // provides better augmentations but runs slow
+            v2.RandomChoice([Rotate(0), Rotate(90), Rotate(180), Rotate(270)]), # provides better augmentations but runs slow
             ToTensor(),
         ],
         transform=None,
@@ -235,6 +233,8 @@ class ESDDataModule(pl.LightningDataModule):
             for tile_dir in tqdm(list(tile_dirs_train), desc="Processing train tiles"):
                 # get the data array list and gt data array from load_and_preprocess
                 data_array_list, gt_data_array = self.load_and_preprocess(tile_dir)
+                # Maybe pad here
+
 
                 # assert dtype of data_array_list is np.float32
                 assert all(
@@ -261,6 +261,7 @@ class ESDDataModule(pl.LightningDataModule):
             ):
                 # get the data array list and gt data array from load_and_preprocess
                 data_array_list, gt_data_array = self.load_and_preprocess(tile_dir)
+                # and pad right here
 
                 # create a subtile, passing the data array list, gt data array, and the slice size
                 subtile = Subtile(
