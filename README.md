@@ -19,7 +19,7 @@ Noah Risser
 
 ## Overview
 
-This project's goal is to use machine learning in order to analyze areas with settlements and/or electricity using Sentinel 2 and VIIRS satellite images. We employ a Self-Supervised Deep Learning model to semantically segment satellite images. We used SimCLR, which is a self-supervised model used to generate our initial weights for our Deep Learning model, U-Net++. This repo contains scripts to run our code, our various models including various supervised models, test cases, and our [best model weights](https://drive.google.com/drive/folders/1jz0clhroyV7D_KhmDnQLVo-Iin5t1F_n?usp=sharing) trained on these images.
+This project's goal is to use Machine Learning in order to analyze areas with settlements and/or electricity using Sentinel 2 and VIIRS satellite images. We employ a Self-Supervised Deep Learning model to semantically segment satellite images. We used SimCLR, which is a self-supervised model used to generate our initial weights for our Deep Learning model, U-Net++. This repo contains scripts to run our code, our various models including various supervised models, test cases, and our [best model weights](https://drive.google.com/drive/folders/1jz0clhroyV7D_KhmDnQLVo-Iin5t1F_n?usp=sharing) trained on these images.
 
 Project documents
 [Presentation](https://docs.google.com/presentation/d/1oqYLN1-L_TKw-rn5uoV_nzOL2YuNyasb_uZdeHgEXL4/edit?usp=drive_link)
@@ -73,7 +73,7 @@ Pretrained models can be found under the models/ folder.
 ![ML Pipeline Diagram](assets/ML_Pipeline.png)
 
 ## SimCLR
-SimClr is a self-supervised deep learning architecture that utilizes image augmentations to learn image representations. The primary augmentation used are vertical flip, horizontal flip, and rotation by 90 degrees. The augmentations allow the same unlabeled image to be fed into the backbone encoder twice with their outputs from the projection head to be compared. The goal of this model is to minimize the difference between the output of the same image with augmentations performed on it. 
+SimClr is a self-supervised deep learning architecture that utilizes image augmentations to learn image representations. The primary augmentation used are vertical flip, horizontal flip, and rotation by 90 degrees. These augmentations allow the same unlabeled image to be fed into the backbone encoder twice with their outputs from the projection head to be compared. The goal of this model is to minimize the difference between the output of the same image with augmentations performed on it. 
 ![SimClr Architecture](https://amitness.com/posts/images/simclr-general-architecture.png)
 
 The weights learned for this model can then be used for the downstream task of image segmentation by attaching a different segmentation head. The decoders available for use with our model are fcn_resnet, deeplabv3, and unet++. 
@@ -84,7 +84,7 @@ U-Net++ is a deep-learning model used for semantic segmentation tasks. It builds
 ![Unet++ Architecture](https://media.geeksforgeeks.org/wp-content/uploads/20230628132335/UNET.webp)
 
 ## Sample Results
-Below are some sample results. Areas of interest are Human Settlements without electricity which are the red pixels. Our models also classify No Human Settlements without electricity (Blue), Human Settlements with electricity (Yellow), and No Human Settlements with electricity (Purple)
+Below are some sample results. Areas of interest are Human Settlements without Electricity (Red pixels). Our models also classify No Human Settlements without Electricity (Blue pixels), Human Settlements with Electricity (Yellow pixels), and No Human Settlements with Electricity (Purple pixels)
 
 ![Sample Result Images](assets/Sat_Img_Sample.png)
 
